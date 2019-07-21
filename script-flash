@@ -1,0 +1,37 @@
+#!/bin/bash
+# Paths for openocd and automatic flashing
+# The following two are 'export'ed in .arm_tools via .profile
+#OPENOCD_BASE	= /usr/share
+#OPENOCD		   = /usr/bin/openocd
+
+OPENOCD_SCRIPTS=$OPENOCD_BASE/openocd/scripts
+OPENOCD_FLASHER=$OPENOCD_SCRIPTS/interface/stlink-v2.cfg
+OPENOCD_BOARD=$OPENOCD_SCRIPTS/board/olimex_stm32_h103.cfg
+OPENOCD_TARGET=$OPENOCD_SCRIPTS/target/stm32f1x.cfg
+
+echo
+echo "---- PATHS for OPENOCD ----"
+echo "OPENOCD_SCRIPTS: $OPENOCD_SCRIPTS"
+echo "OPENOCD_FLAHSER: $OPENOCD_FLASHER"
+echo "OPENOCD_BOARD:   $OPENOCD_BOARD"
+echo "FLASH FILE NAME: $build/$1.srec"
+echo
+_FLASHNAME=/usr/bin/make
+echo " _FLASHNAME:     $_FLASHNAME"
+echo
+
+DIR_SREC=$(pwd)
+echo " DIR_SREC: $DIR_SREC"
+
+# NOTE: flash bank in the following overrides the automatic probe for memory size, thus
+#  allowing 128K of flash to be used in the 'C8 part.
+# https://sourceforge.net/p/openocd/mailman/message/30446928/
+$OPENOCD -s $OPENOCD_SCRIPTS \
+		       -f $OPENOCD_FLASHER \
+		       -f $OPENOCD_BOARD \
+				-c "flash bank $_FLASHNAME stm32f1x 0 0x20000 0 0 stm32f1x.cpu" \
+		       -c "init" -c "reset halt" \
+		       -c "flash write_image erase $DIR_SREC/$1.srec" \
+		       -c "reset" \
+		       -c "shutdown" $NULL
+

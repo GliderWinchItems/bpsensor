@@ -1,0 +1,39 @@
+I plan to populate a few of the motherboards for the Blue Pill unit, with one for the current motor rig.  Here is what it include, you may have other things to add/delete--
+
+1. Flying cap--
+  a) Parts and jumpers on mother board:
+      JP13 RJ11 for interconnect to perf board with relay, cap, resistor, zener (zener instead of diode to speed drop-out).
+      Q8 jumpered to JP13 to drive relay
+      U$15 op-amp follower, jumper JP6-3 to JP13 for fly-cap voltage input
+      Divider: R33|R34 1M:8.2K -> 400v FS.
+  
+  b) External perf board:
+       Relay:      (I should have one of these I got for evaluation, but I have to find it!)
+https://www.digikey.com/product-detail/en/kemet/EC2-5NU/399-11052-5-ND/4291118
+
+     Cap 1 uf @ 450v, e.g.
+https://www.digikey.com/product-detail/en/rubycon/450PK1MEFC6.3X11/1189-1369-ND/3134325
+	
+     Resistor to limit charging surge: 1K
+     
+     Zener: ~12v, onboard fet Vds limit is 20v.  (I'll check my junk box)
+     RJ11 plug on cable plugs into the mother board.
+
+2.  Battery current sensor
+
+   a) Parts on board
+      JP10 for interconnect fo perf board with current sensor
+      R6|R5 5v->3.3v divider. 
+
+   b) External perf board
+      Either use +5 in cable from motherboard, or 
+       use LM78L05 to regulate/smooth +12v locally.
+ 
+      Big cap, e.g. 100 uf on +5 to sensor.
+
+      Cable with RJ 11 to mother board.
+
+
+
+
+

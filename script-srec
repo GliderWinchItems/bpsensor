@@ -1,0 +1,2 @@
+#!/bin/bash
+$ARM_PREFIX/bin/arm-none-eabi-objcopy -O srec F4Freetest.elf F4Freetest.srec

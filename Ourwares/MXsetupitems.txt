@@ -1,0 +1,27 @@
+MXsetupitems.txt
+
+
+Items
+
+1. Serial 
+
+The last argument must match what was setup in 'MX--
+
+/* Add bcb circular buffer to SerialTaskSend for usart1 */
+	#define NUMCIRBCB1  16 // Size of circular buffer of BCB for usart6
+	ret = xSerialTaskSendAdd(&huart1, NUMCIRBCB1, 1); // dma
+	if (ret < 0) morse_trap(1); // Panic LED flashing
+
+2. ADC
+
+
+In adcparams.h the size must match 'MX--
+
+#define ADC1IDX_ADCSCANSIZE   6 // Number ADC channels read
+
+3.  morse.c
+
+The LED set/reset must match the board, i.e. is the LED energized
+by pull-down or pull-up.
+
+

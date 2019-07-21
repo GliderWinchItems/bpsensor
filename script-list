@@ -1,0 +1,2 @@
+#!/bin/bash
+make ; cd build; $ARM_PREFIX/bin/arm-none-eabi-objdump -S F4Freetest.elf | tee F4Freetest.list ; cd ..

@@ -1,0 +1,57 @@
+README.pins
+06/10/2019
+
+
+ .. = hc14 buffer pair
+
+BP header
+  \Left row; top-bottom
+
+Port  Board             Functions available         Used as
+B12 MCP1416 DRVR JP9-1  SPI2_NSS  
+B13 FET Q17 JP12-2      SPI2_SCK  TIM1_CH1N
+B14 NC                  SPI2_MISO TIM1_CH2N
+B15 NC                  SPI2_MOSI TIM1_CH3N
+A8  NC                  TIM1_CH1  MCO
+A9  UART1 TX - JP3-5    TIM1_CH2                    USART1_TX ftdi header
+A10 UART1 RX - JP3-4    TIM1_CH3                    USART1_RX ftdi header
+A11 CAN RX              TIM1_CH4                    CAN RX 
+A12 CAN TX                                          CAN TX 
+A15 JTDI
+B3  JTDO
+B4  JNRST
+B5  ..B5BUF                 TIM3_CH2 SPI1_MOSI 
+B6  ..B6BUF                 TIM4_CH1 USART1_TX
+B7  ..B7BUF FET Q20 JP12-4  TIM4_CH2 USART1_RX
+B8  ..B8BUF FET Q18 JP12-3  TIM4_CH3 CAN_RX         TIM4_CH3 coil drive #2 U$26-2
+B9  ..B9BUF                 TIM4_CH4 CAN_TX         TIM4_CH4 coil drive #1 U$23-2
+5V
+GND
+3.3V
+
+BP header
+  Right row: top-bottom
+GND  
+GND  
+3.3V  
+RESET
+B10 MCP1416 DRVR               USART3_TX TIM2_CH2
+B11 NC                         USART3_RX TIM2_CH4    USART3_RX opto-coupler #2
+B1  OP-AMP U$15                TIM3_CH4
+B0  OP-AMP U$14                TIM3_CH3
+A7  CAN BUS +12 RAW            SPI1_MOSI TIM3_CH2    ADC 12v raw supply
+A6  DIV6 U$23-4 RJ 3X7-20      SPI1_MISO TIM3_CH1    ADC current sense #1 U$23-4
+A5  DIV5 U$26-4 RJ 3X7-19      SPI1_SCK              ADC current sense #2 U$26-4
+A4  DIV4           3X7-18 b    SPI1_NSS
+A3  DIV3           3X7-17 b p  TIM2_CH4 USART2_RX    USART2_RX opto-coupler #1
+A2  DIV2 U$24-4 RJ 3X7-16 b p  TIM2_CH3 USART2_TX    Contactor Aux #2
+A1  DIV1 U$25-4 RJ 3X7-15 b p  TIM2_CH2              Contactor Aux #1
+A0  5V SUPPLY                                        ADC 5v supply 
+C15 FET DMN3404 JP11-1
+C14 ..C14BUF FERT Q12 JP12-1 FET Q8 w diode JP16     FET drive for DMOC enable
+C13 LED
+3.3V 
+
+b = midpoint bias or gnd zero ohm options
+p = pullup to 3.3v resistor option 
+
