@@ -1,8 +1,8 @@
 #!/bin/bash
 
 
-export FLOAT_TYPE=hard
+export FLOAT_TYPE=soft
 make
 
-./script-all contactor
+./script-all bpsensor
 
