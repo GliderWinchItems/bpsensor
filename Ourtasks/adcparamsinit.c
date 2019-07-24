@@ -57,18 +57,17 @@ double adcdtmp;
 
 void adcparamsinit_init(struct ADCFUNCTION* p)
 {
-/* Reproduced for convenience 
+/* => Reproduced for convenience <= 
 struct ADCFUNCTION
 {
-	struct ADCCONTACTORLC lc;    // Local Copy of parameters
-	struct ADCINTERNAL    intern;// Vref & temperature
-	struct ADCABSOLUTE    v12;   // Supply: raw 12v
-	struct ADCABSOLUTE    v5;    // Supply: regulated 5v
-	struct ADCRATIOMETRIC cur1;  // Current sensor #1
-   struct ADCRATIOMETRIC cur2;  // Current sensor #2
-	struct ADCCHANNEL	 chan[ADC1IDX_ADCSCANSIZE]; // ADC sums, calibrated endpt
+	struct ADCCONTACTORLC lc;     // Local Copy of parameters
+	struct ADCINTERNAL    intern; // Vref & temperature
+	struct ADCABSOLUTE    hv[4];  // High voltages
+	struct ADCCHANNEL	 chan[ADC1IDX_ADCSCANSIZE]; // ADC sums
 	uint32_t ctr; // Running count of updates.
+	uint32_t idx_xsum;
 };
+
 struct ADCINTERNAL
 {
 	struct IIRFILTERL iiradcvref; // Intermediate filter params: vref 
@@ -131,71 +130,33 @@ struct ADCINTERNAL
 
 	p->intern.iv25 = (uint32_t)((double)(1 << ADCSCALEbitsy) * p->lc.calintern.dvtemp);
 
-/* Reproduced for convenience
-struct ADCABSOLUTE
+/* => Reproduced for convenience <= 
+struct ADCCALABS
 {
-	struct IIRFILTERL iir;// Intermediate filter params
-	double dscale;        // Computed from measurements
-	uint32_t adcfil;      // Filtered ADC reading
-	uint32_t ival;        // scaled int computed value (not divider scaled)
-}; */	
+	struct IIR_L_PARAM iir; // Filter: Time constant, integer scaling
+	uint32_t adcvn;    // (ADC reading) vn 
+   double   dvn;      // (double) measured vn (volts)
+};
 
-/* Absolute: 12v supply. */
-	p->v12.iir.pprm = &p->lc.cal_12v.iir; // Filter param pointer
-	p->v12.k   = (p->lc.cal_12v.dvn / p->intern.dvref) * (dadc / p->lc.cal_12v.adcvn);
-	p->chan[ADC1IDX_12VRAWSUPPLY].dscale = p->v12.dscale;
+/* Absolute:  Battery string. */
+	p->hv[0].iir.pprm = &p->lc.abs[0]iir; // Filter param pointer
+	p->hv[0].k   = (p->lc.abs[0]dvn / p->intern.dvref) * (dadc / p->lc.abs[0]adcvn);
+	p->chan[ADC1IDX_5VOLTSUPPLY].dscale = p->hv[0].dscale;
 
-/* Absolute:  5v supply. */
-	p->v5.iir.pprm = &p->lc.cal_5v.iir; // Filter param pointer
-	p->v5.k   = (p->lc.cal_5v.dvn / p->intern.dvref) * (dadc / p->lc.cal_5v.adcvn);
-	p->chan[ADC1IDX_5VOLTSUPPLY].dscale = p->v5.dscale;
+/* Absolute:  DMOC+ */
+	p->hv[1].iir.pprm = &p->lc.abs[1]iir; // Filter param pointer
+	p->hv[1].k   = (p->lc.abs[1]dvn / p->intern.dvref) * (dadc / p->lc.abs[1]adcvn);
+	p->chan[ADC1IDX_5VOLTSUPPLY].dscale = p->hv[1].dscale;
 
+/* Absolute:  DMOC- */
+	p->hv[2].iir.pprm = &p->lc.abs[2]iir; // Filter param pointer
+	p->hv[2].k   = (p->lc.abs[2]dvn / p->intern.dvref) * (dadc / p->lc.abs[2]adcvn);
+	p->chan[ADC1IDX_5VOLTSUPPLY].dscale = p->hv[2].dscale;
 
+/* Absolute:  spare */
+	p->hv[3].iir.pprm = &p->lc.abs[3]iir; // Filter param pointer
+	p->hv[3].k   = (p->lc.abs[3]dvn / p->intern.dvref) * (dadc / p->lc.abs[3]adcvn);
+	p->chan[ADC1IDX_5VOLTSUPPLY].dscale = p->hv[3].dscale;
 
-/* Reproduced for convenience
-struct ADCRATIOMETRIC
-{
-	struct IIRFILTERL iir;    // Intermediate filter params
-	double drk5ke;    // Ratio k5/ke resistor dividers ratio (~1.0)
-	double drko;      // Offset ratio: double (~0.5)
-	double dscale;    // Scale factor
-	uint32_t adcfil;  // Filtered ADC reading
-	int32_t irk5ke;   // Ratio k5/ke ratio: scale int (~32768)
-	int32_t irko;     // Offset ratio: scale int (~32768)
-	int32_t iI;       // integer result w offset, not scaled 
-}; */
-
-/* Ratiometric: battery string current. */
-	p->cur1.iir.pprm = &p->lc.cal_cur1.iir; // Filter param pointer
-	
-	// Jumpered readings -> resistor divider ratio (~ 1.00)
-	p->cur1.drk5ke = (double)p->lc.cal_cur1.j5adcv5 / (double)p->lc.cal_cur1.j5adcve;
-	p->cur1.irk5ke *= (p->cur1.drk5ke * (1 << ADCSCALEbits) );
-
-	// Sensor connected, no current -> offset ratio (~ 0.50)
-	p->cur1.drko  = (double)p->lc.cal_cur1.zeroadcve / (double)p->lc.cal_cur1.zeroadc5;
-	p->cur1.irko *= (p->cur1.drko * (1 << ADCSCALEbits) );
-
-	// Sensor connected, test current applied -> scale factor
-	// dscale = (calibration ADC - offset) / calibration current; // adcticks/amp
-	p->cur1.dscale = (p->lc.cal_cur1.caladcve - p->lc.cal_cur1.zeroadcve) / p->lc.cal_cur1.dcalcur;
-	p->chan[ADC1IDX_CURRENTTOTAL].dscale = p->cur1.dscale; // For convenient access
-
-/* Ratiometric: spare current. */
-	p->cur2.iir.pprm = &p->lc.cal_cur2.iir; // Filter param pointer
-
-	// Jumpered readings -> resistor divider ratio (~ 1.00)
-	p->cur2.drk5ke = (double)p->lc.cal_cur2.j5adcv5 / (double)p->lc.cal_cur2.j5adcve;
-	p->cur2.irk5ke *= (p->cur2.drk5ke * (1 << ADCSCALEbits) );
-
-	// Sensor connected, no current -> offset ratio (~ 0.50)
-	p->cur2.drko  = (double)p->lc.cal_cur2.zeroadcve / (double)p->lc.cal_cur2.zeroadc5;
-	p->cur2.irko *= (p->cur2.drko * (1 << ADCSCALEbits) );
-
-	// Sensor connected, test current applied -> scale factor
-	// dscale = (calibration ADC - offset) / calibration current; // adcticks/amp
-	p->cur2.dscale = (p->lc.cal_cur2.caladcve - p->lc.cal_cur2.zeroadcve) / p->lc.cal_cur2.dcalcur;
-	p->chan[ADC1IDX_CURRENTMOTOR].dscale = p->cur2.dscale; // For convenient access
-	
 	return;
 }

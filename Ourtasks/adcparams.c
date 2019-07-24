@@ -195,20 +195,25 @@ void adcparams_cal(void)
 {
 	struct ADCFUNCTION* p = &adc1; // Convenience pointer
 
-	/* First: Update Vref used in susequent computations. */
+	/* Run ADC sum through iir filter */
+	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT1].iir, &p>chan[ADC1IDX_HIGHVOLT1].sum);// 0 PA1 IN1-Battery voltage
+	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT2].iir, &p>chan[ADC1IDX_HIGHVOLT2].sum);// 1 PA2 IN2-DMOC +
+	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT3].iir, &p>chan[ADC1IDX_HIGHVOLT3].sum);// 2 PA3 IN3-DMOC -
+	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT4].iir, &p>chan[ADC1IDX_HIGHVOLT4].sum);// 3 PA4 IN4-spare
+	iir_filter_lx_do(&p>chan[ADC1IDX_INTERNALTEMP].iir, &p>chan[ADC1IDX_INTERNALTEMP].sum);// 4 IN17-Internal temperature sensor
+	iir_filter_lx_do(&p>chan[ADC1IDX_INTERNALVREF].iir, &p>chan[ADC1IDX_INTERNALVREF].sum);// 5 IN18-Internal voltage reference
+
+	/* First: Update ADCvref used in subsequent computations. */
 	internal(p); // Update Vref for temperature
 
-	absolute(p, &p->v5 ,ADC1IDX_5VOLTSUPPLY); // 5v supplying Blue Pill, and sensors.
+   /* Compute high voltages, without resistor divider applied
+	   With Vref = 1.200 max will be 54065 which fits uint16_t.
+      unit16_t is sent out on usart3.  The receiving end applies
+      the resistor divider scaling. */
+	absolute(p, &p->hv[0] ,ADC1IDX_HIGHVOLT1); // 
+	absolute(p, &p->hv[1] ,ADC1IDX_HIGHVOLT2); // 
+	absolute(p, &p->hv[2] ,ADC1IDX_HIGHVOLT3); // 
+	absolute(p, &p->hv[3] ,ADC1IDX_HIGHVOLT4); // 
   
-	absolute(p, &p->v12 ,ADC1IDX_12VRAWSUPPLY); // Raw CAN bus supply to board
-
-/* Note: 5v supply should be processed before ratiometrics.  Otherwise,
-   old readings will be used which is not a big deal for a slowly 
-   changing 5v supply. */
-
-	ratiometric5v(p, &p->cur1, ADC1IDX_CURRENTTOTAL); // Battery string sensor
-
-	ratiometric5v(p, &p->cur2, ADC1IDX_CURRENTMOTOR); // Spare, or motor sensor
-
 	return;
 }

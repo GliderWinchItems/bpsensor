@@ -14,7 +14,7 @@
 #include "morse.h"
 #include "adcfastsum16.h"
 #include "adcparams.h"
-#include "ContactorTask.h"
+#include "SensorTask.h"
 #include "adcextendsum.h"
 
 void StartADCTask(void const * argument);
@@ -61,7 +61,7 @@ void StartADCTask(void const * argument)
 
 	/* Get buffers, "our" control block, and ==>START<== ADC/DMA running. */
 	struct ADCDMATSKBLK* pblk = adctask_init(&hadc1,TSK02BIT02,TSK02BIT03,&noteval);
-	if (pblk == NULL) {morse_trap(15);}
+	if (pblk == NULL) {morse_trap(21);}
 
   /* Infinite loop */
   for(;;)
@@ -98,16 +98,16 @@ void StartADCTask(void const * argument)
 		adcdbctr += 1;
 #endif
 
-		/* Extended sum for smoothing and display. */
-		adcextendsum(&adc1);
-
 		/* Calibrate and filter ADC readings. */
 		adcparams_cal();
 
+		/* Extended sum for smoothing and display. */
+		adcextendsum(&adc1);
+
 		/* Notify ContactorTask that new readings are ready. */
-		if( ContactorTaskHandle == NULL) morse_trap(51); // JIC task has not been created
+		if( SensorTaskHandle == NULL) morse_trap(22); // JIC task has not been created
 		
-		xTaskNotify(ContactorTaskHandle, CNCTBIT00, eSetBits);
+		xTaskNotify(SensorTaskHandle, CNCTBIT00, eSetBits);
   }
 }
 

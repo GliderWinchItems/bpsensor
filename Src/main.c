@@ -59,25 +59,17 @@
 #include <string.h>
 #include "SerialTaskSend.h"
 #include "SerialTaskReceive.h"
-#include "CanTask.h"
-#include "can_iface.h"
-#include "canfilter_setup.h"
 #include "getserialbuf.h"
 #include "stackwatermark.h"
 #include "yprintf.h"
-#include "gateway_comm.h"
-#include "gateway_CANtoPC.h"
 #include "DTW_counter.h"
 #include "yscanf.h"
 #include "adctask.h"
 #include "ADCTask.h"
 #include "adcparams.h"
 #include "adcparamsinit.h"
-#include "gateway_PCtoCAN.h"
 #include "morse.h"
-#include "MailboxTask.h"
-#include "GatewayTask.h"
-#include "ContactorTask.h"
+#include "SensorTask.h"
 
 /* USER CODE END Includes */
 
@@ -93,9 +85,6 @@ uint32_t debug03_prev;
 
 extern osThreadId SerialTaskHandle;
 extern osThreadId SerialTaskReceiveHandle;
-extern osThreadId CanTxTaskHandle;
-extern osThreadId CanRxTaskHandle;
-extern osThreadId GatewayTaskHandle;
 extern osThreadId ADCTaskHandle;
 
 uint8_t canflag;
@@ -211,73 +200,28 @@ int main(void)
 	/* Create serial task (priority) */
 	// Task handle "osThreadId SerialTaskHandle" is global
 	Thrdret = xSerialTaskSendCreate(0);	// Create task and set Task priority
-	if (Thrdret == NULL) morse_trap(17);
+	if (Thrdret == NULL) morse_trap(1);
 
 	/* Add bcb circular buffer to SerialTaskSend for usart1 */
 	#define NUMCIRBCB1  16 // Size of circular buffer of BCB for usart6
 	ret = xSerialTaskSendAdd(&huart1, NUMCIRBCB1, 1); // dma
-	if (ret < 0) morse_trap(1); // Panic LED flashing
+	if (ret < 0) morse_trap(2); // Panic LED flashing
 
 	/* Add bcb circular buffer to SerialTaskSend for usart3 */
 	#define NUMCIRBCB3  16 // Size of circular buffer of BCB for usart3
 	ret = xSerialTaskSendAdd(&huart3, NUMCIRBCB3, 0); // char-by-char
-	if (ret < 0) morse_trap(2); // Panic LED flashing
+	if (ret < 0) morse_trap(3); // Panic LED flashing
 
 	/* Setup semaphore for yprint and sprintf et al. */
 	yprintf_init();
 
-	/* Create serial receiving task. */
-	Thrdret = xSerialTaskReceiveCreate(0);
-	if (Thrdret == NULL) morse_trap(21);
-
-  /* definition and creation of CanTxTask - CAN driver TX interface. */
-  Qidret = xCanTxTaskCreate(0, 32); // CanTask priority, Number of msgs in queue
-	if (Qidret < 0) morse_trap(5); // Panic LED flashing
-
-  /* definition and creation of CanRxTask - CAN driver RX interface. */
-//  Qidret = xCanRxTaskCreate(1, 32); // CanTask priority, Number of msgs in extern osThreadId SerialTaskReceiveHandle;queue
-//	if (Qidret < 0) morse_trap(6); // Panic LED flashing
-
-	/* Setup TX linked list for CAN  */
-   // CAN1 (CAN_HandleTypeDef *phcan, uint8_t canidx, uint16_t numtx, uint16_t numrx);
-	pctl0 = can_iface_init(&hcan, 0, 32, 64);
-	if (pctl0 == NULL) morse_trap(7); // Panic LED flashing
-	if (pctl0->ret < 0) morse_trap(77);
-
-	/* Setup CAN hardware filters to default to accept all ids. */
-	HAL_StatusTypeDef Cret;
-	Cret = canfilter_setup_first(0, &hcan, 15); // CAN1
-	if (Cret == HAL_ERROR) morse_trap(9);
-
-	/* Remove "accept all" CAN msgs and add specific id & mask, or id here. */
-	// See canfilter_setup.h
-
-	/* Contactor control. */
-	Thrdret = xContactorTaskCreate(0);
-	if (Thrdret == NULL) morse_trap(18);
-
-	/* Create MailboxTask */
-	Thrdret = xMailboxTaskCreate(2);
-	if (Thrdret == NULL) morse_trap(19);
-
-	/* Create Mailbox control block w 'take' pointer for each CAN module. */
-	struct MAILBOXCANNUM* pmbxret;
-	// (CAN1 control block pointer, size of circular buffer)
-	pmbxret = MailboxTask_add_CANlist(pctl0, 48);
-	if (pmbxret == NULL) morse_trap(16);
-
-	/* Select interrupts for CAN1 */
-	HAL_CAN_ActivateNotification(&hcan, \
-		CAN_IT_TX_MAILBOX_EMPTY     |  \
-		CAN_IT_RX_FIFO0_MSG_PENDING |  \
-		CAN_IT_RX_FIFO1_MSG_PENDING    );
-
-	/* Start CANs */
-	HAL_CAN_Start(&hcan); // CAN1
+	/* Sending readings */
+	Thrdret = 	xSensorTaskCreate(1);
+	if (Thrdret == NULL) morse_trap(4);
 
 	/* ADC summing, calibration, etc. */
 	Thrdret = 	xADCTaskCreate(1);
-	if (Thrdret == NULL) morse_trap(20);
+	if (Thrdret == NULL) morse_trap(5);
 	
 /* =================================================== */
 
@@ -380,7 +324,7 @@ static void MX_ADC1_Init(void)
   }
   /**Configure Regular Channel 
   */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_28CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
@@ -389,7 +333,7 @@ static void MX_ADC1_Init(void)
   }
   /**Configure Regular Channel 
   */
-  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -397,7 +341,7 @@ static void MX_ADC1_Init(void)
   }
   /**Configure Regular Channel 
   */
-  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -405,7 +349,7 @@ static void MX_ADC1_Init(void)
   }
   /**Configure Regular Channel 
   */
-  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Channel = ADC_CHANNEL_4;
   sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -622,16 +566,16 @@ extern uint32_t adcsumdb[6];// DMA sums
 //extern uint32_t adcdbctr; // ADC DMA sum counter
 double dt1;
 
-extern struct CONTACTORFUNCTION contactorfunction;
-struct CONTACTORFUNCTION* pcf = &contactorfunction;
+extern struct SENSORFUNCTION sensorfunction;
+struct SENSORFUNCTION* pcf = &sensorfunction;
 
 osDelay(50); // Allow ADC task to get these initialized
 
 double dx25    = pcf->padc->lc.calintern.dvtemp * (1.0/4.3E-3);
-if (dx25 < 0.1) morse_trap(48);
+if (dx25 < 0.1) morse_trap(12);
 
 double dxdvref = pcf->padc->intern.dvref * (1.0/4.3E-3);
-if (dxdvref < 0.1) morse_trap(49);
+if (dxdvref < 0.1) morse_trap(13);
 
 // DTW time duration checks
 extern uint32_t adcdbg2;
@@ -648,11 +592,9 @@ extern uint32_t adcdbg2;
 			/* Display the amount of unused stack space for tasks. */
 			yprintf(&pbuf1,"\n\n\r#%4i Unused Task stack space--", ctr++);
 			stackwatermark_show(defaultTaskHandle,&pbuf1,"defaultTask---");
-			stackwatermark_show(SerialTaskHandle ,&pbuf1,"SerialTaskSend");
-			stackwatermark_show(CanTxTaskHandle  ,&pbuf1,"CanTxTask-----");
-	//		stackwatermark_show(CanRxTaskHandle  ,&pbuf1,"CanRxTask-----");
-			stackwatermark_show(MailboxTaskHandle,&pbuf1,"MailboxTask---");
 			stackwatermark_show(ADCTaskHandle    ,&pbuf1,"ADCTask-------");
+			stackwatermark_show(SensorTaskHandle ,&pbuf1,"SensorTask----");
+			stackwatermark_show(SerialTaskHandle ,&pbuf1,"SerialTaskSend");
 	stackwatermark_show(SerialTaskReceiveHandle,&pbuf1,"SerialReceiveTask");
 
 			/* Heap usage (and test fp woking. */
@@ -671,8 +613,7 @@ extern uint32_t adcdbg2;
 
 #define SHOWEXTENDEDSUMMEDADCCHANNELS
 #ifdef  SHOWEXTENDEDSUMMEDADCCHANNELS
-		yprintf(&pbuf1, "\n\r     5v    cur1    cur2     12v    temp    vref\n\r");
-		// Following loop takes about 450000 sysclock ticks 6.2 ms (includes waits for serial port)
+		yprintf(&pbuf1, "\n\r    hv1    hv2    hv3     hv4    temp    vref\n\r");
 		for (i = 0; i < 6; i++)
 		{	
 			yprintf(&pbuf1,"%8.1f",(double)(pcf->padc->chan[i].xsum[1])*(1.0/ADCEXTENDSUMCT));
@@ -689,28 +630,11 @@ extern uint32_t adcdbg2;
 	yprintf(&pbuf1,"\n\rT degC: (doubles)%6.2f (scaled int)%6.2f\n\r", dt1,(double)pcf->padc->intern.itemp/(1<<ADCSCALEbits), adcdbg2,pcf->padc->intern.adccmpvref);
 #endif
 
-//      pcf->padc->chan[ADC1IDX_5VOLTSUPPLY].ival,  pcf->padc->v5.adcfil, 
-//      pcf->padc->chan[ADC1IDX_12VRAWSUPPLY].ival, pcf->padc->v12.adcfil,
-
-	yprintf(&pbuf1,"\n\r%i %i %i %i %i %0.6f %0.4f : %0.4f\n\r",
-      pcf->padc->v12.ival,
-      pcf->padc->intern.adcfilvref,
-      pcf->padc->intern.vref,
-	   pcf->padc->v12.adcfil,
-	   pcf->padc->lc.calintern.adcvdd,
-      pcf->padc->v12.k,  
-      (pcf->padc->v12.k * (double)pcf->padc->v12.ival * (1.0/(1<<ADCSCALEbits))), 
-      pcf->padc->intern.dvref );
-
-	yprintf(&pbuf1,"\n\rV v5: %0.3f  v12: %0.2f\n\r",
-	  (pcf->padc->v5.k  * (double)pcf->padc->v5.ival  * (1.0/(1<<ADCSCALEbits))),
-	  (pcf->padc->v12.k * (double)pcf->padc->v12.ival * (1.0/(1<<ADCSCALEbits))) );
-
-	
-//	yprintf(&pbuf1,"%i %i %0.2f %0.2f : %i\n\r",
-//      pcf->padc->v12.ival, pcf->padc->v12.adcfil,pcf->padc->v12.dscale, pcf->padc->v12.dscale * pcf->padc->v12.ival, 
-//pcf->padc->intern.vref
-// );
+	yprintf(&pbuf1,"\n\rV hv: %8.3f %8.3f %8.3f %8.3f\n\r",
+	  (pcf->padc->hv[0].k  * (double)pcf->padc->hv[0].ival  * (1.0/(1<<ADCSCALEbits))),
+	  (pcf->padc->hv[1].k  * (double)pcf->padc->hv[1].ival  * (1.0/(1<<ADCSCALEbits))),
+	  (pcf->padc->hv[2].k  * (double)pcf->padc->hv[2].ival  * (1.0/(1<<ADCSCALEbits))),
+	  (pcf->padc->hv[3].k  * (double)pcf->padc->hv[3].ival  * (1.0/(1<<ADCSCALEbits)));
 
   }
   /* USER CODE END 5 */ 
