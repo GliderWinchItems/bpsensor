@@ -24,13 +24,6 @@ Vn = Vref * (ADC[n]/ADC[vref]) * ((R1+R2)/R2);
 
 The resistor scale factor is applied when sending out readings for human consumption.
 
-Since all values are positive, scaled uint32_t is used.  Ranges encounted--
- (1.20 * 65536) < Vref      < (1.27 * 65536) 
-          39321 < Vref      < 41615
-              0 < ADC[n]    < 65520
-          22464 < ADC[Vref] < 29718
-Max ADCVref = 65520 * 1.20v/Vdd 3.5v = 22464
-Min ADCVref = 65520 * 1.27v/Vdd 2.8v = 29718
 
 
  Vref TEMPERATURE COMPENSATION
@@ -94,21 +87,15 @@ Average slope     4.0  4.3  4.6  mV/°C
 Voltage at 25 °C  1.34 1.43 1.52 V
 
 */
-	/* IIR filter internal adc sensor readings. */
-	p->intern.adcfiltemp = iir_filter_lx_do(&p->intern.iiradctemp, &p->chan[ADC1IDX_INTERNALTEMP].sum);
-	p->intern.adcfilvref = iir_filter_lx_do(&p->intern.iiradcvref, &p->chan[ADC1IDX_INTERNALVREF].sum);
-
 	/* Skip temperature compensation for now. */
-	p->intern.adccmpvref = p->intern.adcfilvref;
+	p->intern.adccmpvref = p->chan[ADC1IDX_INTERNALVREF].adcfil;
 
-adcdbg1 = DTWTIME;
 	/* Compute temperature */
-	itmp = (p->intern.iv25 * p->intern.adcfilvref) - ((p->intern.vref * p->intern.adcfiltemp) >> (ADCSCALEbits-ADCSCALEbitsy));
+	itmp = (p->intern.iv25 * p->chan[ADC1IDX_INTERNALVREF].adcfil) - ((p->intern.vref * p->chan[ADC1IDX_INTERNALTEMP].adcfil) >> (ADCSCALEbits-ADCSCALEbitsy));
 
-	itmp = ((itmp >> ADCSCALEbitsitmp) * p->intern.yRs) / p->intern.adcfilvref;
+	itmp = ((itmp >> ADCSCALEbitsitmp) * p->intern.yRs) / p->chan[ADC1IDX_INTERNALVREF].adcfil;
 
 	p->intern.itemp = (itmp << ADCSCALEbitsitmp) + p->intern.irmtemp;
-adcdbg2 = DTWTIME - adcdbg1;
 
 	return;
 }
@@ -123,70 +110,14 @@ adcdbg2 = DTWTIME - adcdbg1;
 Vn = Vref * (ADC[n]/ADC[vref]) * ((R1+R2)/R2);
   Where: ((R1+R2)/R2) is resistor divider scale factor 
 */
-static void absolute(struct ADCFUNCTION* p, struct ADCABSOLUTE* pa,uint8_t idx)
+static void absolute(struct ADCFUNCTION* p,uint8_t idx)
 {
 	/* IIR filter adc reading. */
-	pa->adcfil = iir_filter_lx_do(&pa->iir, &p->chan[idx].sum);
+	p->chan[idx].adcfil = iir_filter_lx_do(&p->chan[idx].iir, &p->chan[idx].sum);
 
-	pa->ival = (p->intern.vref * pa->adcfil) / p->intern.adccmpvref;
+	p->chan[idx].ival = (p->intern.vref * p->chan[idx].adcfil) / p->intern.adccmpvref;
 	return;
 }
-/* *************************************************************************
- * static void ratiometric5v(struct ADCFUNCTION* p, struct ADCRATIOMETRIC* pr,uint8_t idx);
- *	@brief	: Calibrate and filter 5v ratiometric (e.g. Hall-effect sensor) reading
- * @param	: p = Pointer to array of ADC reading sums plus other stuff
- * @param	: pr = Pointer to ratiometric working vars (within p->)
- * @param	: idx = index into ADC sum for sensor
- * *************************************************************************/
-/*
-Vr = (k5/ke) * ((ADC[ke]/ADC[k5]) - koffset) * scale
-  scale is only applied for when used for human consumption
-	
-
- Computation scaling--
--  K5 and Ke resistor dividers will be have a division ratio that is nearly
-  the same. Therefore, assume k5/ke is less than 2
-
--  scale k5/ke by 2^15 so max less than 65536,
-
--  ADC[ke]/ADC[k5] is always less than 1,
-   therefore,
-    (k5/ke) * (ADC[ke]/ADC[k5]) is always less than 2^32
-
-*/
-static void ratiometric5v(struct ADCFUNCTION* p, struct ADCRATIOMETRIC* pr, uint8_t idx)
-{
-/* NOTE: Ratiometric is based on the ratio of the reading of the 5v supply 
-   powering the sensor and the sensor reading.  The ratio is adjusted to 
-   account for the differences in the resistor divider ratio for both
-   inputs.
-
-	The originating offset parameter in the 'lc struct is converted to a
-   2^16 scaled fraction during the initialization of parameters.  Therefore,
-   the offset is typically, either zero (sensor is positive going only), to
-   0.5 (therefore 32767) when the offset is at 1/2 Vsensor (2.5v).
-
-	The dividers for sensor and 5v supply are approximately equal, but the ratio
-   is calibrated.  The ratio is therefore close to 1.0.
-*/
-	/* IIR filter adc reading. */
-	pr->adcfil = iir_filter_lx_do(&pr->iir, &p->chan[idx].sum);
-
-	/* Compute ratio of sensor reading to 5v supply reading. */
-	uint64_t adcke = (pr->adcfil << ADCSCALEbits); // Scale before divide
-	uint64_t adcratio64 = adcke / p->chan[ADC1IDX_5VOLTSUPPLY].sum;
-	uint32_t adcratio = (adcratio64 >> ADCSCALEbits);
-
-	/* Subtract offset (note result is now signed). */
-	int32_t tmp = (adcratio - pr->irko); 
-
-	/* Apply adjustment for unequal resistor dividers. */
-	int64_t tmp64 = (pr->irk5ke * tmp);
-	pr->iI = (tmp64 >> ADCSCALEbits);
-
-	return;
-}
-
 /* *************************************************************************
  * void adcparams_cal(void);
  *	@brief	: calibrate and filter ADC readings
@@ -195,25 +126,31 @@ void adcparams_cal(void)
 {
 	struct ADCFUNCTION* p = &adc1; // Convenience pointer
 
-	/* Run ADC sum through iir filter */
-	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT1].iir, &p>chan[ADC1IDX_HIGHVOLT1].sum);// 0 PA1 IN1-Battery voltage
-	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT2].iir, &p>chan[ADC1IDX_HIGHVOLT2].sum);// 1 PA2 IN2-DMOC +
-	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT3].iir, &p>chan[ADC1IDX_HIGHVOLT3].sum);// 2 PA3 IN3-DMOC -
-	iir_filter_lx_do(&p>chan[ADC1IDX_HIGHVOLT4].iir, &p>chan[ADC1IDX_HIGHVOLT4].sum);// 3 PA4 IN4-spare
-	iir_filter_lx_do(&p>chan[ADC1IDX_INTERNALTEMP].iir, &p>chan[ADC1IDX_INTERNALTEMP].sum);// 4 IN17-Internal temperature sensor
-	iir_filter_lx_do(&p>chan[ADC1IDX_INTERNALVREF].iir, &p>chan[ADC1IDX_INTERNALVREF].sum);// 5 IN18-Internal voltage reference
+	/* Run each ADC sum through iir filter */
+	// 0 PA1 IN1-Battery voltage
+	p->chan[ADC1IDX_HIGHVOLT1].adcfil = iir_filter_lx_do(&p->chan[ADC1IDX_HIGHVOLT1].iir, &p->chan[ADC1IDX_HIGHVOLT1].sum);
+	// 1 PA2 IN2-DMOC +
+	p->chan[ADC1IDX_HIGHVOLT2].adcfil =	iir_filter_lx_do(&p->chan[ADC1IDX_HIGHVOLT2].iir, &p->chan[ADC1IDX_HIGHVOLT2].sum);
+	// 2 PA3 IN3-DMOC -
+	p->chan[ADC1IDX_HIGHVOLT3].adcfil =	iir_filter_lx_do(&p->chan[ADC1IDX_HIGHVOLT3].iir, &p->chan[ADC1IDX_HIGHVOLT3].sum);
+	// 3 PA4 IN4-spare
+	p->chan[ADC1IDX_HIGHVOLT4].adcfil =	iir_filter_lx_do(&p->chan[ADC1IDX_HIGHVOLT4].iir, &p->chan[ADC1IDX_HIGHVOLT4].sum);
+	// 4 IN17-Internal temperature sensor
+	p->chan[ADC1IDX_INTERNALTEMP].adcfil =	iir_filter_lx_do(&p->chan[ADC1IDX_INTERNALTEMP].iir, &p->chan[ADC1IDX_INTERNALTEMP].sum);
+	// 5 IN18-Internal voltage reference
+	p->chan[ADC1IDX_INTERNALVREF].adcfil =	iir_filter_lx_do(&p->chan[ADC1IDX_INTERNALVREF].iir, &p->chan[ADC1IDX_INTERNALVREF].sum);
 
 	/* First: Update ADCvref used in subsequent computations. */
 	internal(p); // Update Vref for temperature
 
    /* Compute high voltages, without resistor divider applied
-	   With Vref = 1.200 max will be 54065 which fits uint16_t.
+	   With Vref = 1.200 the max input will yield 54065 which fits uint16_t.
       unit16_t is sent out on usart3.  The receiving end applies
       the resistor divider scaling. */
-	absolute(p, &p->hv[0] ,ADC1IDX_HIGHVOLT1); // 
-	absolute(p, &p->hv[1] ,ADC1IDX_HIGHVOLT2); // 
-	absolute(p, &p->hv[2] ,ADC1IDX_HIGHVOLT3); // 
-	absolute(p, &p->hv[3] ,ADC1IDX_HIGHVOLT4); // 
+	absolute(p, ADC1IDX_HIGHVOLT1); // 
+	absolute(p, ADC1IDX_HIGHVOLT2); // 
+	absolute(p, ADC1IDX_HIGHVOLT3); // 
+	absolute(p, ADC1IDX_HIGHVOLT4); // 
   
 	return;
 }

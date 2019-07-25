@@ -1,0 +1,56 @@
+README.pins
+07/23/2019
+bpsensor - Blue Pill high voltage sensor
+
+
+BP header
+  Left row; top-bottom
+
+Port  Board             Functions available         Used as
+B12 MCP1416 DRVR JP9-1  SPI2_NSS  
+B13 FET Q17 JP12-2      SPI2_SCK  TIM1_CH1N
+B14 NC                  SPI2_MISO TIM1_CH2N
+B15 NC                  SPI2_MOSI TIM1_CH3N
+A8  NC                  TIM1_CH1  MCO
+A9  UART1 TX - JP3-5    TIM1_CH2                    USART1_TX ftdi header
+A10 UART1 RX - JP3-4    TIM1_CH3                    USART1_RX ftdi header
+A11 CAN RX              TIM1_CH4                    
+A12 CAN TX                                          
+A15 JTDI
+B3  JTDO
+B4  JNRST
+B5  ..B5BUF                 TIM3_CH2 SPI1_MOSI 
+B6  ..B6BUF                 TIM4_CH1 USART1_TX
+B7  ..B7BUF FET Q20 JP12-4  TIM4_CH2 USART1_RX
+B8  ..B8BUF FET Q18 JP12-3  TIM4_CH3 CAN_RX        
+B9  ..B9BUF                 TIM4_CH4 CAN_TX         
+5V
+GND
+3.3V
+
+BP header
+  Right row: top-bottom
+GND  
+GND  
+3.3V  
+RESET
+B10 MCP1416 DRVR               USART3_TX TIM2_CH2    USART3_TX opto-coupler #2
+B11 NC                         USART3_RX TIM2_CH4   
+B1  OP-AMP U$15                TIM3_CH4
+B0  OP-AMP U$14                TIM3_CH3
+A7  CAN BUS +12 RAW            SPI1_MOSI TIM3_CH2    
+A6  DIV6 U$23-4 RJ 3X7-20      SPI1_MISO TIM3_CH1    
+A5  DIV5 U$26-4 RJ 3X7-19      SPI1_SCK              
+A4  DIV4           3X7-18 b    SPI1_NSS              HV4: spare
+A3  DIV3           3X7-17 b p  TIM2_CH4 USART2_RX    HV3: DMOC-
+A2  DIV2 U$24-4 RJ 3X7-16 b p  TIM2_CH3 USART2_TX    HV2: DMOC+
+A1  DIV1 U$25-4 RJ 3X7-15 b p  TIM2_CH2              HV1: Battery string
+A0  5V SUPPLY                                        
+C15 FET DMN3404 JP11-1
+C14 ..C14BUF FERT Q12 JP12-1 FET Q8 w diode JP16     
+C13 LED
+3.3V 
+
+b = midpoint bias or gnd zero ohm options
+p = pullup to 3.3v resistor option 
+

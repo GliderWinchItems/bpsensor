@@ -112,6 +112,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
+DMA_HandleTypeDef hdma_usart3_tx;
 
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
@@ -145,7 +146,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	BaseType_t ret;	   // Used for returns from function calls
-	osMessageQId Qidret; // Function call return
+//	osMessageQId Qidret; // Function call return
 	osThreadId Thrdret;
   /* USER CODE END 1 */
 
@@ -209,7 +210,7 @@ int main(void)
 
 	/* Add bcb circular buffer to SerialTaskSend for usart3 */
 	#define NUMCIRBCB3  16 // Size of circular buffer of BCB for usart3
-	ret = xSerialTaskSendAdd(&huart3, NUMCIRBCB3, 0); // char-by-char
+	ret = xSerialTaskSendAdd(&huart3, NUMCIRBCB3, 1); // dma
 	if (ret < 0) morse_trap(3); // Panic LED flashing
 
 	/* Setup semaphore for yprint and sprintf et al. */
@@ -501,6 +502,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
@@ -566,15 +570,12 @@ extern uint32_t adcsumdb[6];// DMA sums
 //extern uint32_t adcdbctr; // ADC DMA sum counter
 double dt1;
 
-extern struct SENSORFUNCTION sensorfunction;
-struct SENSORFUNCTION* pcf = &sensorfunction;
-
 osDelay(50); // Allow ADC task to get these initialized
 
-double dx25    = pcf->padc->lc.calintern.dvtemp * (1.0/4.3E-3);
+double dx25    = adc1.lc.calintern.dvtemp * (1.0/4.3E-3);
 if (dx25 < 0.1) morse_trap(12);
 
-double dxdvref = pcf->padc->intern.dvref * (1.0/4.3E-3);
+double dxdvref = adc1.intern.dvref * (1.0/4.3E-3);
 if (dxdvref < 0.1) morse_trap(13);
 
 // DTW time duration checks
@@ -603,12 +604,13 @@ extern uint32_t adcdbg2;
 				100.0*(float)heapsize/configTOTAL_HEAP_SIZE,(configTOTAL_HEAP_SIZE-heapsize));
 #endif
 
-#ifdef SHOWSUMMEDADCCHANNELS
+#define SHOWSUMMEDADCCHANNELS
+#ifdef  SHOWSUMMEDADCCHANNELS
 		for (i = 0; i < 6; i++)
 		{	
 			yprintf(&pbuf1,"%7i ",adcsumdb[i]); // This is what routines work with
 		}
-		yprintf(&pbuf1, " :%7i %8.1f\n\r ", pcf->padc->intern.adcfiltemp, (double)(pcf->padc->intern.adcfilvref)/pcf->padc->intern.iiradcvref.pprm->scale);
+		yprintf(&pbuf1, " :%7i %8.1f\n\r ", adc1.chan[ADC1IDX_INTERNALTEMP].adcfil, (double)(adc1.chan[ADC1IDX_INTERNALVREF].adcfil));///adc1.intern.iiradcvref.pprm->scale);
 #endif
 
 #define SHOWEXTENDEDSUMMEDADCCHANNELS
@@ -616,7 +618,7 @@ extern uint32_t adcdbg2;
 		yprintf(&pbuf1, "\n\r    hv1    hv2    hv3     hv4    temp    vref\n\r");
 		for (i = 0; i < 6; i++)
 		{	
-			yprintf(&pbuf1,"%8.1f",(double)(pcf->padc->chan[i].xsum[1])*(1.0/ADCEXTENDSUMCT));
+			yprintf(&pbuf1,"%8.1f",(double)(adc1.chan[i].xsum[1])*(1.0/ADCEXTENDSUMCT));
 		}
 		yprintf(&pbuf1,"\n\r");
 #endif
@@ -625,16 +627,16 @@ extern uint32_t adcdbg2;
 #ifdef SHOWINTERNALTEMPERATURECALCULATIONS
 	/* Internal temperature computation check. */
 	// The following takes 1418 sysclock ticks
-	dt1 = (dx25 - (dxdvref * ((double)pcf->padc->intern.adcfiltemp / (double)pcf->padc->intern.adcfilvref )))  + pcf->padc->lc.calintern.drmtemp;
+	dt1 = (dx25 - (dxdvref * ((double)adc1.chan[ADC1IDX_INTERNALTEMP].adcfil / (double)adc1.chan[ADC1IDX_INTERNALVREF].adcfil )))  + adc1.lc.calintern.drmtemp;
 
-	yprintf(&pbuf1,"\n\rT degC: (doubles)%6.2f (scaled int)%6.2f\n\r", dt1,(double)pcf->padc->intern.itemp/(1<<ADCSCALEbits), adcdbg2,pcf->padc->intern.adccmpvref);
+	yprintf(&pbuf1,"\n\rT degC: (doubles)%6.2f (scaled int)%6.2f\n\r", dt1,(double)adc1.intern.itemp/(1<<ADCSCALEbits), adcdbg2,adc1.intern.adccmpvref);
 #endif
 
-	yprintf(&pbuf1,"\n\rV hv: %8.3f %8.3f %8.3f %8.3f\n\r",
-	  (pcf->padc->hv[0].k  * (double)pcf->padc->hv[0].ival  * (1.0/(1<<ADCSCALEbits))),
-	  (pcf->padc->hv[1].k  * (double)pcf->padc->hv[1].ival  * (1.0/(1<<ADCSCALEbits))),
-	  (pcf->padc->hv[2].k  * (double)pcf->padc->hv[2].ival  * (1.0/(1<<ADCSCALEbits))),
-	  (pcf->padc->hv[3].k  * (double)pcf->padc->hv[3].ival  * (1.0/(1<<ADCSCALEbits)));
+	yprintf(&pbuf1,"\n\rV ival: %8.3f %8.3f %8.3f %8.3f\n\r",
+	  (adc1.chan[0].k  * (double)adc1.chan[0].ival  * (1.0/(1<<ADCSCALEbits))),
+	  (adc1.chan[1].k  * (double)adc1.chan[1].ival  * (1.0/(1<<ADCSCALEbits))),
+	  (adc1.chan[2].k  * (double)adc1.chan[2].ival  * (1.0/(1<<ADCSCALEbits))),
+	  (adc1.chan[3].k  * (double)adc1.chan[3].ival  * (1.0/(1<<ADCSCALEbits))) );
 
   }
   /* USER CODE END 5 */ 

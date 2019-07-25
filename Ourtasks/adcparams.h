@@ -78,22 +78,16 @@ struct ADCINTERNAL
 	uint32_t iv25;       // (scaled) dvtemp (e.g. (1.43 << ADCSCALEbits))
 };
 
-/* Working values for absolute voltages adjusted using Vref. */
-struct ADCABSOLUTE
-{
-	double dscale;        // Computed from measurements
-	double k;             // divider ratio: (Vref/adcvref)*(adcvx/Vx)
-	uint32_t ival;        // scaled int computed value (not divider scaled)
-};
 
 struct ADCCHANNEL	
 {
 	struct IIRFILTERL iir;// Intermediate filter params
 	uint32_t adcfil;      // Filtered ADC reading
-	uint32_t ival;    // Reading: calibrated scaled int32_t
-	uint16_t sum;     // Sum of 1/2 DMA buffer
-	uint32_t xsum[2]; // Extended sum
-	double dscale;    // Reading: final scaling
+	uint32_t ival;        // Reading: calibrated scaled int32_t
+	uint16_t sum;         // Sum of 1/2 DMA buffer
+	uint32_t xsum[2];     // Extended sum
+	double k;             // Divider scale
+	double dscale;
 };
 
 /* struct allows pointer to access raw and calibrated ADC1 data. */
@@ -101,7 +95,7 @@ struct ADCFUNCTION
 {
 	struct ADCCONTACTORLC lc;     // Local Copy of parameters
 	struct ADCINTERNAL    intern; // Vref & temperature
-	struct ADCABSOLUTE    hv[4];  // High voltages
+//	struct ADCABSOLUTE    hv[4];  // High voltages
 	struct ADCCHANNEL	 chan[ADC1IDX_ADCSCANSIZE]; // ADC sums
 	uint32_t ctr; // Running count of updates.
 	uint32_t idx_xsum;

@@ -11,9 +11,11 @@
 #include "ADCTask.h"
 #include "adctask.h"
 #include "morse.h"
-#include "SerialTaskReceive.h"
+#include "SerialTaskSend.h"
+#include "getserialbuf.h"
 #include "SensorTask.h"
-#include "sensor_idx_v_struct.h"
+#include "adcparamsinit.h"
+#include "yprintf.h"
 
 /* From 'main.c' */
 extern UART_HandleTypeDef huart3;
@@ -22,7 +24,8 @@ static char* hex(char *p, u8 c);
 
 osThreadId SensorTaskHandle;
 
-struct SENSORFUNCTION sensorfunction;
+static void adctoserial(char* p);
+
 
 /* *************************************************************************
  * osThreadId xSensorTaskCreate(uint32_t taskpriority);
@@ -53,13 +56,8 @@ void StartSensorTask(void const * argument)
 	struct SERIALSENDTASKBCB* pbuf3 = getserialbuf(&huart3,48);
 	if (pbuf3 == NULL) morse_trap(31);
 
-
-	/* Init struct with working params */
-	sensor_idx_v_struct_hardcode_params(&sensorfunction.lc);
-
-	/* Initialize working struc for SensorTask. */
-	extern struct ADCFUNCTION adc1;
-	sensor_func_init_init(pcf, &adc1);
+	/* Initialize working struc for ADC. */
+	adcparams_init();
 
 	char c[32];
       
@@ -73,14 +71,14 @@ void StartSensorTask(void const * argument)
 		{ // ADC readings ready
 			noteused |= CNCTBIT00;  // We handled the bit
 			adctoserial(&c[0]);     // Construct the line
-			yputs(&c[0]); // Queue for sending
+			yputs(&pbuf3,&c[0]); // Queue for sending
 		}
 		if ((noteused & ~CNCTBIT00) != 0) // Debugging jic
 				morse_trap(32);
 	}
 }
 /* *************************************************************************
- * static void adctoserial(void);
+ * static void adctoserial(char* p);
  *	@brief	: Build serial line 
  * *************************************************************************/
 /*
@@ -94,22 +92,17 @@ static char* hex(char *p, u8 c)	// Convert 'c' to hex, placing in output *p.
 		*p++ = h[((c >> 4) & 0x0f)];	// Hi order nibble
 		*p++ = h[(c & 0x0f)];		// Lo order nibble
 		return p;			// Return new output pointer position
-
+}
 static void adctoserial(char* p)
 {
-	char cout[32];
-	char* p = &cout[0];
-	
-	struct ADCCHANNEL* padc = &adc1;
-	
-	p = hex(p, padc1->chan[ADC1IDX_HIGHVOLT1].ival >> 0);
-	p = hex(p, padc1->chan[ADC1IDX_HIGHVOLT1].ival >> 8);
+	p = hex(p, adc1.chan[ADC1IDX_HIGHVOLT1].ival >> 0);
+	p = hex(p, adc1.chan[ADC1IDX_HIGHVOLT1].ival >> 8);
 
-	p = hex(p, padc1->chan[ADC1IDX_HIGHVOLT2].ival >> 0);
-	p = hex(p, padc1->chan[ADC1IDX_HIGHVOLT2].ival >> 8);
+	p = hex(p, adc1.chan[ADC1IDX_HIGHVOLT2].ival >> 0);
+	p = hex(p, adc1.chan[ADC1IDX_HIGHVOLT2].ival >> 8);
 
-	p = hex(p, padc1->chan[ADC1IDX_HIGHVOLT3].ival >> 0);
-	p = hex(p, padc1->chan[ADC1IDX_HIGHVOLT3].ival >> 8);
+	p = hex(p, adc1.chan[ADC1IDX_HIGHVOLT3].ival >> 0);
+	p = hex(p, adc1.chan[ADC1IDX_HIGHVOLT3].ival >> 8);
 
 	*p++ = '\n'; *p = 0;
 	return;
