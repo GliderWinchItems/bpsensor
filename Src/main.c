@@ -113,6 +113,7 @@ UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart3_tx;
+DMA_HandleTypeDef hdma_usart3_rx;
 
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
@@ -191,7 +192,7 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityIdle, 0, 240);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityIdle, 0, 304);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -473,11 +474,12 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
+  huart3.Init.BaudRate = 9600
+;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
-  huart3.Init.Mode = UART_MODE_RX;
+  huart3.Init.Mode = UART_MODE_TX_RX;
   huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart3.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart3) != HAL_OK)
@@ -505,6 +507,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
   /* DMA1_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
@@ -581,6 +586,11 @@ if (dxdvref < 0.1) morse_trap(13);
 // DTW time duration checks
 extern uint32_t adcdbg2;
 
+uint32_t adc1_ctr_prev = adc1.ctr;
+extern uint32_t dbgSS;
+uint32_t dbgSS_prev = dbgSS;
+extern char dbgc[32];
+
   /* Infinite loop */
   for(;;)
   {
@@ -638,7 +648,12 @@ extern uint32_t adcdbg2;
 	  (adc1.chan[2].k  * (double)adc1.chan[2].ival  * (1.0/(1<<ADCSCALEbits))),
 	  (adc1.chan[3].k  * (double)adc1.chan[3].ival  * (1.0/(1<<ADCSCALEbits))) );
 
+yprintf(&pbuf1,"UART CTR %i %i %s\n\r",adc1.ctr-adc1_ctr_prev,dbgSS-dbgSS_prev,dbgc);
+adc1_ctr_prev = adc1.ctr;
+dbgSS_prev = dbgSS;
   }
+
+
   /* USER CODE END 5 */ 
 }
 

@@ -59,6 +59,8 @@ void StartADCTask(void const * argument)
 	/* notification bits processed after a 'Wait. */
 	uint32_t noteused = 0;
 
+osDelay(20); // Debugging
+
 	/* Get buffers, "our" control block, and ==>START<== ADC/DMA running. */
 	struct ADCDMATSKBLK* pblk = adctask_init(&hadc1,TSK02BIT02,TSK02BIT03,&noteval);
 	if (pblk == NULL) {morse_trap(21);}

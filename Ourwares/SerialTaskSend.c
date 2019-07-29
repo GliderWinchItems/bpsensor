@@ -11,6 +11,7 @@
 #include "malloc.h"
 
 #include "SerialTaskSend.h"
+#include "morse.h"
 
 /*
 Goals: 
@@ -246,7 +247,7 @@ UBaseType_t uxPriority,
 TaskHandle_t *pxCreatedTask );
 */
 	BaseType_t ret = xTaskCreate(StartSerialTaskSend, "SerialTaskSend",\
-     128, NULL, taskpriority,\
+     256, NULL, taskpriority,\
      &SerialTaskHandle);
 	if (ret != pdPASS) return NULL;
 

@@ -17,6 +17,8 @@
 #include "adcparamsinit.h"
 #include "yprintf.h"
 
+#include <string.h>
+
 /* From 'main.c' */
 extern UART_HandleTypeDef huart3;
 
@@ -44,6 +46,9 @@ osThreadId xSensorTaskCreate(uint32_t taskpriority)
  * void StartSensorTask(void const * argument);
  *	@brief	: Task startup
  * *************************************************************************/
+uint32_t dbgSS;
+char dbgc[32];
+
 void StartSensorTask(void const * argument)
 {
 	/* A notification copies the internal notification word to this. */
@@ -60,7 +65,7 @@ void StartSensorTask(void const * argument)
 	adcparams_init();
 
 	char c[32];
-      
+
   /* Infinite loop */
   for(;;)
   {
@@ -71,6 +76,7 @@ void StartSensorTask(void const * argument)
 		{ // ADC readings ready
 			noteused |= CNCTBIT00;  // We handled the bit
 			adctoserial(&c[0]);     // Construct the line
+dbgSS += 1;
 			yputs(&pbuf3,&c[0]); // Queue for sending
 		}
 		if ((noteused & ~CNCTBIT00) != 0) // Debugging jic

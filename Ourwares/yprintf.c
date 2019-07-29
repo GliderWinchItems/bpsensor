@@ -86,7 +86,7 @@ int yputs(struct SERIALSENDTASKBCB** ppbcb, char* pchr)
 
 	/* Block if this buffer is not available. SerialSendTask will 'give' the semaphore 
       when the buffer has been sent. */
-	xSemaphoreTake(pbcb->semaphore, 6000);
+	xSemaphoreTake(pbcb->semaphore, 3000);
 
 	strncpy((char*)pbcb->pbuf,pchr,pbcb->maxsize);	// Copy and limit size.
 
