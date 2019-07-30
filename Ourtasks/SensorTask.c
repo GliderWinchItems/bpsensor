@@ -77,6 +77,7 @@ void StartSensorTask(void const * argument)
 			noteused |= CNCTBIT00;  // We handled the bit
 			adctoserial(&c[0]);     // Construct the line
 dbgSS += 1;
+strncpy(dbgc,c,31);
 			yputs(&pbuf3,&c[0]); // Queue for sending
 		}
 		if ((noteused & ~CNCTBIT00) != 0) // Debugging jic

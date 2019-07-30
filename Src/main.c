@@ -474,8 +474,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600
-;
+  huart3.Init.BaudRate = 115200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -647,6 +646,8 @@ extern char dbgc[32];
 	  (adc1.chan[1].k  * (double)adc1.chan[1].ival  * (1.0/(1<<ADCSCALEbits))),
 	  (adc1.chan[2].k  * (double)adc1.chan[2].ival  * (1.0/(1<<ADCSCALEbits))),
 	  (adc1.chan[3].k  * (double)adc1.chan[3].ival  * (1.0/(1<<ADCSCALEbits))) );
+
+	yprintf(&pbuf1," %8i %8i %8i %8i\n\r",adc1.chan[0].ival,adc1.chan[1].ival,adc1.chan[2].ival,adc1.chan[3].ival);
 
 yprintf(&pbuf1,"UART CTR %i %i %s\n\r",adc1.ctr-adc1_ctr_prev,dbgSS-dbgSS_prev,dbgc);
 adc1_ctr_prev = adc1.ctr;

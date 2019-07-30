@@ -88,6 +88,14 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define Batter_string_Pin GPIO_PIN_1
+#define Batter_string_GPIO_Port GPIOA
+#define DMOC_plus_Pin GPIO_PIN_2
+#define DMOC_plus_GPIO_Port GPIOA
+#define DMOC_minus_Pin GPIO_PIN_3
+#define DMOC_minus_GPIO_Port GPIOA
+#define spare_Pin GPIO_PIN_4
+#define spare_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
